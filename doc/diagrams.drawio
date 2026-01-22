@@ -1,0 +1,82 @@
+<mxfile host="65bd71144e">
+    <diagram id="IKL0kwoqRZGWCJqubxxb" name="mock-implementation">
+        <mxGraphModel dx="2315" dy="1187" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="0.0" value="Best viewed with the &lt;a href=&quot;https://github.com/ariel-bentu/tam-drawio&quot;&gt;TAM plugin&lt;/a&gt;" style="text;html=1;shape=tamPluginMissing;" parent="1" vertex="1" connectable="0">
+                    <mxGeometry x="412.5" y="660" width="200" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="mock-popp-smartphone-client" style="shape=agent;offsetSize=8;strokeWidth=2;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="-35" y="300" width="370" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="9" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="4" target="5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" value="PCAP&lt;div&gt;SICCT&amp;nbsp;&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;Trace&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;connect-gsmc-kt-card-handle-vsdm.pcap&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=60;strokeWidth=2;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="-30" y="340" width="360" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" value="PCAPReader" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="410" width="160" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="6" value="Konnektor" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="10" y="140" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" value="eHealth-KT" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="190" y="140" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="8" value="" style="shape=useedge;endArrow=none;edgeStyle=none;useSignPosition=up;useSignDirection=east;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="6" target="7" edge="1">
+                    <mxGeometry width="160" relative="1" as="geometry">
+                        <mxPoint x="130" y="170" as="sourcePoint"/>
+                        <mxPoint x="290" y="170" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="10" value="" style="shape=singleArrow;direction=south;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="180" width="60" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="11" target="13" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="SecureSendAPDUProcessor" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="480" width="190" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="" style="shape=useedge;vertical=true;edgeStyle=none;endArrow=none;useSignPosition=left;useSignDirection=none;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="1" source="11" target="5" edge="1">
+                    <mxGeometry height="160" relative="1" as="geometry">
+                        <mxPoint x="130" y="630" as="sourcePoint"/>
+                        <mxPoint x="130" y="470" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="16" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="13" target="15" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="SecureSendAPDU&lt;div&gt;SOAP&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=60;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="490" width="140" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="popp-smartphone-konnektor" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="480" width="170" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="17" value="Signatur weg lassen" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+                    <mxGeometry x="245" y="450" width="80" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="18" value="Smartphone" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="770" y="480" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="19" value="EGK" style="shape=agent;offsetSize=8;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="910" y="480" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="" style="shape=useedge;endArrow=none;edgeStyle=none;useSignPosition=up;useSignDirection=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="15" target="18" edge="1">
+                    <mxGeometry width="160" relative="1" as="geometry">
+                        <mxPoint x="720" y="530" as="sourcePoint"/>
+                        <mxPoint x="880" y="530" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="21" value="" style="shape=useedge;endArrow=none;edgeStyle=none;useSignPosition=up;useSignDirection=east;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="18" target="19" edge="1">
+                    <mxGeometry width="160" relative="1" as="geometry">
+                        <mxPoint x="900" y="550" as="sourcePoint"/>
+                        <mxPoint x="1060" y="550" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
