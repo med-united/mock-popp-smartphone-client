@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jaxb:bindings xmlns:jaxb="https://jakarta.ee/xml/ns/jaxb"
+               xmlns:xs="http://www.w3.org/2001/XMLSchema"
+               xmlns:xjc="https://jakarta.ee/xml/ns/jaxb/xjc"
+               xmlns:dss="urn:oasis:names:tc:dss:1.0:core:schema"
+               jaxb:version="3.0">
+    <!-- Define Base64Data type for DSS namespace -->
+    <jaxb:bindings schemaLocation="../ext/oasis-dss-core-schema-v1.0-os.xsd" node="/xs:schema">
+        <jaxb:globalBindings>
+            <xjc:simple/>
+        </jaxb:globalBindings>
+    </jaxb:bindings>
+</jaxb:bindings>

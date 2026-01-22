@@ -49,6 +49,13 @@
                             <wsdlOptions>
                                 <wsdlOption>
                                     <wsdl>${project.basedir}/src/main/resources/wsdl/CardService_v8_2_1.wsdl</wsdl>
+                                    <bindingFiles>
+                                        <bindingFile>${project.basedir}/src/main/resources/wsdl/bindings.xml</bindingFile>
+                                    </bindingFiles>
+                                    <extraargs>
+                                        <extraarg>-keep</extraarg>
+                                        <extraarg>-verbose</extraarg>
+                                    </extraargs>
                                 </wsdlOption>
                             </wsdlOptions>
                         </configuration>
