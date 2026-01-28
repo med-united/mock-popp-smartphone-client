@@ -8,6 +8,9 @@ release.properties
 dependency-reduced-pom.xml
 .flattened-pom.xml
 
+# Auth
+auth/
+
 # IDE
 .idea/
 .vscode/
