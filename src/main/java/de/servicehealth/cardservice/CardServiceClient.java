@@ -233,6 +233,8 @@ public class CardServiceClient {
     }
 
     public static void main(String[] args) {
+        System.setProperty("javax.xml.accessExternalDTD", "all");
+        System.setProperty("javax.xml.accessExternalSchema", "all");
         CardServiceClient client = new CardServiceClient();
         
         if (client.testConnection()) {
