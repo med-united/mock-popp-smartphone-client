@@ -38,7 +38,7 @@ public class CardServiceConfig {
      * Set default values
      */
     private void setDefaults() {
-        properties.setProperty("cardservice.endpoint.url", "http://localhost:8080/CardService");
+        properties.setProperty("cardservice.endpoint.url", "http://localhost:8080/services/CardService");
         properties.setProperty("cardservice.connection.timeout", "30000");
         properties.setProperty("cardservice.socket.timeout", "30000");
         properties.setProperty("cardservice.ssl.enabled", "false");
