@@ -4,19 +4,35 @@ import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
+import org.apache.cxf.headers.Header;
+import org.apache.cxf.jaxb.JAXBDataBinding;
+import org.apache.cxf.configuration.jsse.TLSClientParameters;
 
-import de.gematik.ws.conn.cardservice.v8.BinaryDocumentType;
 import de.gematik.ws.conn.cardservice.v8.SecureSendAPDU;
 import de.gematik.ws.conn.cardservice.v8.SecureSendAPDUResponse;
+import de.gematik.ws.conn.cardservice.v8.StartCardSession;
+import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v8.StopCardSession;
+import de.gematik.ws.conn.cardservice.v8.StopCardSessionResponse;
 import de.gematik.ws.conn.cardservice.wsdl.v8_2.CardService;
 import de.gematik.ws.conn.cardservice.wsdl.v8_2.CardServicePortType;
-import oasis.names.tc.dss._1_0.core.schema.SignatureObject;
+import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 
 import jakarta.xml.ws.BindingProvider;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.namespace.QName;
 import javax.net.ssl.*;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.security.PrivateKey;
+import java.util.Enumeration;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 /**
  * SOAP Client for CardService SecureSendApdu operation
@@ -24,6 +40,10 @@ import java.security.cert.X509Certificate;
 public class CardServiceClient {
     private CardServiceConfig config;
     private CardServicePortType port;
+    private KeyManager[] keyManagers;
+    private TrustManager[] trustManagers;
+    private PrivateKey privateKey;
+    private List<String> clientCertChain;
 
     public CardServiceClient() {
         this.config = new CardServiceConfig();
@@ -80,6 +100,19 @@ public class CardServiceClient {
         policy.setAllowChunking(false);
         
         conduit.setClient(policy);
+
+        if (config.getEndpointUrl().toLowerCase().startsWith("https")) {
+            TLSClientParameters tlsParams = new TLSClientParameters();
+            tlsParams.setDisableCNCheck(true);
+            tlsParams.setTrustManagers(trustManagers);
+            if (keyManagers != null) {
+                tlsParams.setKeyManagers(keyManagers);
+                if (config.isLoggingEnabled()) System.out.println("mTLS configured with client certificate.");
+            } else {
+                System.err.println("WARNING: No KeyManagers available. Client certificate will NOT be sent.");
+            }
+            conduit.setTlsClientParameters(tlsParams);
+        }
     }
 
     /**
@@ -88,7 +121,7 @@ public class CardServiceClient {
     private void configureSsl() {
         try {
             // 1. Trust Manager (Trust all server certs - for dev/test only!)
-            TrustManager[] trustAllCerts = new TrustManager[] {
+            trustManagers = new TrustManager[] {
                 new X509TrustManager() {
                     public X509Certificate[] getAcceptedIssuers() { return null; }
                     public void checkClientTrusted(X509Certificate[] certs, String authType) { }
@@ -97,7 +130,7 @@ public class CardServiceClient {
             };
 
             // 2. Key Manager (Load Client Certificate)
-            KeyManager[] keyManagers = null;
+            keyManagers = null;
             try {
                 String keystorePath = config.getSslKeystorePath();
                 String keystorePass = config.getSslKeystorePassword();
@@ -129,6 +162,26 @@ public class CardServiceClient {
                 KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 kmf.init(keyStore, keystorePass.toCharArray());
                 keyManagers = kmf.getKeyManagers();
+
+                // Extract CN from certificate for WebSocket connection
+                Enumeration<String> aliases = keyStore.aliases();
+                while (aliases.hasMoreElements()) {
+                    String alias = aliases.nextElement();
+                    if (keyStore.isKeyEntry(alias)) {
+                        this.privateKey = (PrivateKey) keyStore.getKey(alias, keystorePass.toCharArray());
+                        
+                        // Extract certificate chain for JWT headers (x5c, stpl)
+                        java.security.cert.Certificate[] chain = keyStore.getCertificateChain(alias);
+                        if (chain != null) {
+                            this.clientCertChain = new ArrayList<>();
+                            for (java.security.cert.Certificate c : chain) {
+                                this.clientCertChain.add(Base64.getEncoder().encodeToString(c.getEncoded()));
+                            }
+                        }
+                        break;
+                    }
+                }
+
                 if (config.isLoggingEnabled()) {
                     System.out.println("Client certificate loaded successfully.");
                 }
@@ -142,7 +195,7 @@ public class CardServiceClient {
             System.setProperty("jsse.enableSNIExtension", "false"); // Fix for IP-based access
             
             SSLContext sc = SSLContext.getInstance("TLSv1.2");
-            sc.init(keyManagers, trustAllCerts, new SecureRandom());
+            sc.init(keyManagers, trustManagers, new SecureRandom());
             HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
             HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
         } catch (Exception e) {
@@ -151,33 +204,171 @@ public class CardServiceClient {
     }
 
     /**
+     * Creates a signed JWT scenario using the client's private key
+     * @param sessionId The session ID to include in the payload
+     */
+    private String createSignedScenario(String sessionId) {
+        try {
+            if (privateKey == null) {
+                System.err.println("Cannot sign scenario: No private key available.");
+                return "INVALID_JWT";
+            }
+
+            String algo = privateKey.getAlgorithm();
+            SignatureAlgorithm sigAlgo;
+
+            if ("RSA".equals(algo)) {
+                sigAlgo = SignatureAlgorithm.RS256;
+            } else {
+                sigAlgo = SignatureAlgorithm.ES256;
+            }
+
+            // Build Payload Map
+            Map<String, Object> step = new HashMap<>();
+            step.put("commandApdu", "00a4040c");
+            step.put("expectedStatusWords", List.of("9000", "6f00"));
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", "StandardScenario");
+            message.put("version", "1.0.0");
+            message.put("clientSessionId", sessionId);
+            message.put("sequenceCounter", 1);
+            message.put("timeSpan", 1000);
+            message.put("steps", List.of(step));
+
+            // Build and Sign JWT
+            io.jsonwebtoken.JwtBuilder builder = Jwts.builder()
+                    .setHeaderParam("typ", "JWT")
+                    .claim("message", message)
+                    .signWith(privateKey, sigAlgo);
+            
+            if (clientCertChain != null && !clientCertChain.isEmpty()) {
+                builder.setHeaderParam("x5c", clientCertChain);
+                builder.setHeaderParam("stpl", clientCertChain.get(0));
+            }
+            
+            return builder.compact();
+        } catch (Exception e) {
+            System.err.println("Error creating signed scenario: " + e.getMessage());
+            return "ERROR_CREATING_JWT";
+        }
+    }
+
+    /**
+     * Start a card session
+     */
+    public StartCardSessionResponse startCardSession(ContextType context, String cardHandle) {
+        if (context == null) {
+            System.err.println("ERROR: ContextType is null");
+            return null;
+        }
+        
+        try {
+            if (config.isLoggingEnabled()) {
+                System.out.println("Calling StartCardSession...");
+                System.out.println("  CardHandle: " + cardHandle);
+            }
+
+            StartCardSession request = new StartCardSession();
+            request.setCardHandle(cardHandle);
+
+            addContextHeader(context);
+
+            StartCardSessionResponse response = port.startCardSession(request);
+
+            if (config.isLoggingEnabled()) {
+                System.out.println("StartCardSession response received");
+                if (response != null) {
+                    System.out.println("  Response: " + response.getSessionId());
+                }
+            }
+
+            return response;
+        } catch (Exception e) {
+            System.err.println("ERROR calling StartCardSession: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Stop a card session
+     */
+    public StopCardSessionResponse stopCardSession(ContextType context, String sessionId) {
+        if (context == null) {
+            System.err.println("ERROR: ContextType is null");
+            return null;
+        }
+        
+        try {
+            if (config.isLoggingEnabled()) {
+                System.out.println("Calling StopCardSession...");
+                System.out.println("  SessionId: " + sessionId);
+            }
+
+            StopCardSession request = new StopCardSession();
+            request.setSessionId(sessionId);
+
+            addContextHeader(context);
+
+            StopCardSessionResponse response = port.stopCardSession(request);
+
+            if (config.isLoggingEnabled()) {
+                System.out.println("StopCardSession response received");
+                if (response != null) {
+                    System.out.println("  Response: " + response.toString());
+                }
+            }
+
+            return response;
+        } catch (Exception e) {
+            System.err.println("ERROR calling StopCardSession: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
      * Call SecureSendApdu operation
      */
     public SecureSendAPDUResponse secureSendApdu(
-            BinaryDocumentType transactionData,
-            SignatureObject signatureObject,
-            byte[] x509Certificate) {
+            ContextType context,
+            String signedScenario
+        ) {
+        
+        if (context == null) {
+            System.err.println("ERROR: ContextType is null");
+            return null;
+        }
+
         try {
-            if (config.isLoggingEnabled()) {
-                System.out.println("Calling SecureSendApdu...");
-                System.out.println("  TransactionData length: " + transactionData.getBase64Data().getValue().length);
-                System.out.println("  SignatureObject: " + (signatureObject != null ? "present" : "null"));
-                System.out.println("  X509Certificate: " + (x509Certificate != null ? "present" : "null"));
-            }
+            System.out.println("Calling SecureSendApdu...");
+            System.out.println("  Context: [MandantId=" + context.getMandantId() + 
+                                   ", ClientSystemId=" + context.getClientSystemId() + 
+                                   ", WorkplaceId=" + context.getWorkplaceId() + "]");
 
             SecureSendAPDU request = new SecureSendAPDU();
-            request.setTransactionData(transactionData);
-            request.setSignatureObject(signatureObject);
-            request.setX509Certificate(x509Certificate);
+            request.setSignedScenario(signedScenario);
+
+            // Add Context as SOAP Header
+            addContextHeader(context);
 
             SecureSendAPDUResponse response = port.secureSendAPDU(request);
 
             if (config.isLoggingEnabled()) {
                 System.out.println("SecureSendApdu response received");
-                System.out.println("  Status: " + (response.getStatus() != null ? response.getStatus() : "null"));
-                System.out.println("  TransactionResult length: " + 
-                    (response.getTransactionResult() != null ? response.getTransactionResult().getBase64Data().getValue().length : 0));
-                System.out.println("  TimeSpan: " + response.getTimeSpan());
+                if (response != null && response.getStatus() != null) {
+                    System.out.println("  Status: " + response.getStatus().getResult());
+                    if (response.getStatus().getError() != null) {
+                        System.out.println("  Error: " + response.getStatus().getError());
+                    }
+                }
+                
+                if (response != null && response.getSignedScenarioResponse() != null) {
+                    System.out.println("  SignedScenarioResponse: present");
+                } else {
+                    System.out.println("  SignedScenarioResponse: null");
+                }
             }
 
             return response;
@@ -186,6 +377,23 @@ public class CardServiceClient {
             e.printStackTrace();
             return null;
         }
+    }
+
+    /**
+     * Helper to add ContextType as SOAP Header
+     */
+    private void addContextHeader(ContextType context) {
+        List<Header> headers = new ArrayList<>();
+        try {
+            Header contextHeader = new Header(
+                new QName("http://ws.gematik.de/conn/ConnectorContext/v2.0", "Context"), 
+                context, 
+                new JAXBDataBinding(ContextType.class));
+            headers.add(contextHeader);
+        } catch (Exception e) {
+            System.err.println("Error creating SOAP Header: " + e.getMessage());
+        }
+        ((BindingProvider) port).getRequestContext().put(Header.HEADER_LIST, headers);
     }
 
     /**
@@ -212,7 +420,20 @@ public class CardServiceClient {
             // Send an empty request to provoke a response from the server.
             // Even a SOAP Fault proves that SSL handshake and HTTP connection are working.
             try {
-                port.secureSendAPDU(new SecureSendAPDU());
+                // Create dummy context for connection test
+                ContextType dummyContext = new ContextType();
+                dummyContext.setMandantId("Test");
+                dummyContext.setClientSystemId("Test");
+                dummyContext.setWorkplaceId("Test");
+                dummyContext.setUserId("Test");
+                
+                // Add Context as SOAP Header for test
+                addContextHeader(dummyContext);
+
+                StartCardSessionResponse response = startCardSession(dummyContext, "0000-1111");
+
+                secureSendApdu(dummyContext, createSignedScenario(response.getSessionId()));
+                
                 System.out.println("Connection test: OK (Service responded)");
             } catch (jakarta.xml.ws.soap.SOAPFaultException e) {
                 System.out.println("Connection test: OK (Server reachable, returned Fault: " + e.getMessage() + ")");
@@ -236,7 +457,7 @@ public class CardServiceClient {
         System.setProperty("javax.xml.accessExternalDTD", "all");
         System.setProperty("javax.xml.accessExternalSchema", "all");
         CardServiceClient client = new CardServiceClient();
-        
+
         if (client.testConnection()) {
             System.out.println("CardService client is ready");
             System.out.println("Endpoint: " + client.getConfig().getEndpointUrl());
