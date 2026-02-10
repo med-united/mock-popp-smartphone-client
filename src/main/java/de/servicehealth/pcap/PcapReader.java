@@ -11,10 +11,12 @@ public class PcapReader {
     private static final byte[] PCAP_MAGIC_BE = {(byte) 0xA1, (byte) 0xB2, (byte) 0xC3, (byte) 0xD4};
 
     private List<ApduMessage> apduMessages;
+    private List<byte[]> rawApdus;
     private boolean bigEndian;
 
     public PcapReader() {
         this.apduMessages = new ArrayList<>();
+        this.rawApdus = new ArrayList<>();
         this.bigEndian = false;
     }
 
@@ -102,6 +104,7 @@ public class PcapReader {
         List<byte[]> apdus = extractFromSicctData(payload);
         for (byte[] apdu : apdus) {
             if (isValidApdu(apdu)) {
+                rawApdus.add(apdu);
                 ApduMessage apduMsg = new ApduMessage(apdu, timestamp, "Packet");
                 apduMessages.add(apduMsg);
             }
@@ -193,6 +196,13 @@ public class PcapReader {
      */
     public List<ApduMessage> getApduMessages() {
         return apduMessages;
+    }
+
+    /**
+     * Get list of raw APDU bytes
+     */
+    public List<byte[]> getRawApdus() {
+        return rawApdus;
     }
 
     /**
