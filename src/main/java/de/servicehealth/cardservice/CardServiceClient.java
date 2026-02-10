@@ -33,6 +33,10 @@ import java.util.HashMap;
 import java.util.Map;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
  * SOAP Client for CardService SecureSendApdu operation
@@ -44,6 +48,8 @@ public class CardServiceClient {
     private TrustManager[] trustManagers;
     private PrivateKey privateKey;
     private List<String> clientCertChain;
+    private String clientCertCn;
+    private WebSocket webSocket;
 
     public CardServiceClient() {
         this.config = new CardServiceConfig();
@@ -177,6 +183,23 @@ public class CardServiceClient {
                             for (java.security.cert.Certificate c : chain) {
                                 this.clientCertChain.add(Base64.getEncoder().encodeToString(c.getEncoded()));
                             }
+                            
+                            // Extract CN from certificate for WebSocket connection
+                            if (chain.length > 0 && chain[0] instanceof X509Certificate) {
+                                X509Certificate cert = (X509Certificate) chain[0];
+                                String dn = cert.getSubjectX500Principal().getName();
+                                try {
+                                    javax.naming.ldap.LdapName ln = new javax.naming.ldap.LdapName(dn);
+                                    for (javax.naming.ldap.Rdn rdn : ln.getRdns()) {
+                                        if (rdn.getType().equalsIgnoreCase("CN")) {
+                                            this.clientCertCn = rdn.getValue().toString();
+                                            break;
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("Error parsing CN from certificate: " + e.getMessage());
+                                }
+                            }
                         }
                         break;
                     }
@@ -206,8 +229,9 @@ public class CardServiceClient {
     /**
      * Creates a signed JWT scenario using the client's private key
      * @param sessionId The session ID to include in the payload
+     * @param apduHexList List of APDU hex strings to include as steps
      */
-    private String createSignedScenario(String sessionId) {
+    public String createSignedScenario(String sessionId, List<String> apduHexList) {
         try {
             if (privateKey == null) {
                 System.err.println("Cannot sign scenario: No private key available.");
@@ -224,9 +248,13 @@ public class CardServiceClient {
             }
 
             // Build Payload Map
-            Map<String, Object> step = new HashMap<>();
-            step.put("commandApdu", "00a4040c");
-            step.put("expectedStatusWords", List.of("9000", "6f00"));
+            List<Map<String, Object>> steps = new ArrayList<>();
+            for (String apdu : apduHexList) {
+                Map<String, Object> step = new HashMap<>();
+                step.put("commandApdu", apdu);
+                step.put("expectedStatusWords", List.of("9000", "6f00"));
+                steps.add(step);
+            }
 
             Map<String, Object> message = new HashMap<>();
             message.put("type", "StandardScenario");
@@ -234,7 +262,10 @@ public class CardServiceClient {
             message.put("clientSessionId", sessionId);
             message.put("sequenceCounter", 1);
             message.put("timeSpan", 1000);
-            message.put("steps", List.of(step));
+            message.put("steps", steps);
+
+            System.out.println("Signed scenario:");
+            System.out.println("   " + message.toString());
 
             // Build and Sign JWT
             io.jsonwebtoken.JwtBuilder builder = Jwts.builder()
@@ -251,6 +282,97 @@ public class CardServiceClient {
         } catch (Exception e) {
             System.err.println("Error creating signed scenario: " + e.getMessage());
             return "ERROR_CREATING_JWT";
+        }
+    }
+
+    /**
+     * Connects to the WebSocket and registers the card session.
+     * @param cardSessionId The session ID
+     * @param x509AuthECC The card's auth certificate (Base64)
+     */
+    public void connectWebSocket(String cardSessionId) {
+        if (this.clientCertCn == null) {
+            System.err.println("Cannot connect to WebSocket: Client Certificate CN not found.");
+            return;
+        }
+
+        try {
+            // Construct WebSocket URL
+            java.net.URI endpointUri = new java.net.URI(config.getEndpointUrl());
+            String scheme = endpointUri.getScheme().equalsIgnoreCase("https") ? "wss" : "ws";
+            String host = endpointUri.getHost();
+            int port = endpointUri.getPort();
+            String path = "/websocket/" + this.clientCertCn;
+            java.net.URI wsUri = new java.net.URI(scheme, null, host, port, path, null, null);
+            
+            System.out.println("Connecting to WebSocket: " + wsUri);
+
+            HttpClient.Builder clientBuilder = HttpClient.newBuilder();
+            
+            // Configure SSL
+            if ("wss".equals(scheme)) {
+                SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+                sslContext.init(keyManagers, trustManagers, new SecureRandom());
+                clientBuilder.sslContext(sslContext);
+            }
+
+            HttpClient httpClient = clientBuilder.build();
+            
+            CompletableFuture<WebSocket> wsFuture = httpClient.newWebSocketBuilder()
+                .buildAsync(wsUri, new WebSocket.Listener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        System.out.println("WebSocket connected.");
+                        WebSocket.Listener.super.onOpen(webSocket);
+                    }
+
+                    @Override
+                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                        System.out.println("WebSocket received: " + data);
+                        return WebSocket.Listener.super.onText(webSocket, data, last);
+                    }
+                    
+                    @Override
+                    public void onError(WebSocket webSocket, Throwable error) {
+                        System.err.println("WebSocket error: " + error.getMessage());
+                    }
+                });
+
+            this.webSocket = wsFuture.join();
+
+            // Create Payload
+            // Convert Base64 cert to byte array for JSON array format (Server expects [byte, byte...])
+            /*
+            byte[] certBytes = Base64.getDecoder().decode(x509AuthECC);
+            String certJsonArray = java.util.stream.IntStream.range(0, certBytes.length)
+                .map(i -> certBytes[i])
+                .mapToObj(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+
+            String innerJson = String.format("{\"cardSessionId\":\"%s\",\"x509AuthECC\":%s}", cardSessionId, certJsonArray);
+            */
+            String innerJson = String.format("{\"cardSessionId\":\"%s\",\"x509AuthECC\":\"%s\"}", cardSessionId, clientCertChain.get(0));
+            String payloadBase64 = Base64.getEncoder().encodeToString(innerJson.getBytes());
+
+            String correlationId = java.util.UUID.randomUUID().toString();
+            String msg = String.format("[{\"type\": \"registerEGK\", \"payload\": \"%s\"}, \"%s\", \"%s\"]", payloadBase64, cardSessionId, correlationId);
+
+            System.out.println("Sending registerEGK message...");
+            this.webSocket.sendText(msg, true);
+
+        } catch (Exception e) {
+            System.err.println("Failed to connect/register WebSocket: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Closes the WebSocket connection.
+     */
+    public void closeWebSocket() {
+        if (this.webSocket != null) {
+            this.webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Closing");
+            this.webSocket = null;
         }
     }
 
@@ -430,14 +552,21 @@ public class CardServiceClient {
                 // Add Context as SOAP Header for test
                 addContextHeader(dummyContext);
 
+                connectWebSocket("0000-1111");
+
                 StartCardSessionResponse response = startCardSession(dummyContext, "0000-1111");
 
-                secureSendApdu(dummyContext, createSignedScenario(response.getSessionId()));
-                
+                //secureSendApdu(dummyContext, createSignedScenario(response.getSessionId(), List.of("00a4040c")));
+                secureSendApdu(dummyContext, createSignedScenario("0000-1111", List.of("00a4040c")));
+
+                closeWebSocket();
+
                 System.out.println("Connection test: OK (Service responded)");
             } catch (jakarta.xml.ws.soap.SOAPFaultException e) {
+                closeWebSocket();
                 System.out.println("Connection test: OK (Server reachable, returned Fault: " + e.getMessage() + ")");
             } catch (Exception e) {
+                closeWebSocket();
                 // Check for network/SSL errors
                 String msg = e.getMessage();
                 if (msg != null && (msg.contains("Failed to access") || msg.contains("Connection refused") || msg.contains("Handshake") || msg.contains("timed out"))) {
