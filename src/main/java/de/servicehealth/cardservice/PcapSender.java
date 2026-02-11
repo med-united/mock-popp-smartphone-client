@@ -16,12 +16,12 @@ import java.util.List;
 public class PcapSender {
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.out.println("Usage: mvn exec:java \"-Dexec.mainClass=de.servicehealth.cardservice.PcapSender\" \"-Dexec.args=<pcap_file>\"");
-            System.exit(1);
-        }
+        //if (args.length < 1) {
+        //    System.out.println("Usage: mvn exec:java \"-Dexec.mainClass=de.servicehealth.cardservice.PcapSender\" \"-Dexec.args=<pcap_file>\"");
+        //    System.exit(1);
+        // }
 
-        String pcapFilePath = args[0];
+        String pcapFilePath = (args.length > 0 ? args[0] : "src/main/resources/pcap/connect-gsmc-kt-card-handle-vsdm.pcap");
         System.out.println("Reading PCAP file: " + pcapFilePath);
 
         try {
@@ -80,7 +80,7 @@ public class PcapSender {
             // 5. Create Signed Scenario with ALL APDUs
             System.out.println("Creating signed scenario with " + apduHexList.size() + " steps...");
             //String signedScenario = client.createSignedScenario(sessionId, apduHexList);
-            String signedScenario = client.createSignedScenario("0000-1111", apduHexList);
+            String signedScenario = client.createSignedScenario("537e7eb7-82cd-4af0-90f2-3e514109f542", apduHexList);
 
             if ("INVALID_JWT".equals(signedScenario) || "ERROR_CREATING_JWT".equals(signedScenario)) {
                 System.err.println("Failed to create signed scenario.");

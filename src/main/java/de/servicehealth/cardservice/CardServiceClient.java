@@ -552,12 +552,12 @@ public class CardServiceClient {
                 // Add Context as SOAP Header for test
                 addContextHeader(dummyContext);
 
-                connectWebSocket("0000-1111");
+                connectWebSocket("537e7eb7-82cd-4af0-90f2-3e514109f542");
 
                 StartCardSessionResponse response = startCardSession(dummyContext, "0000-1111");
 
                 //secureSendApdu(dummyContext, createSignedScenario(response.getSessionId(), List.of("00a4040c")));
-                secureSendApdu(dummyContext, createSignedScenario("0000-1111", List.of("00a4040c")));
+                secureSendApdu(dummyContext, createSignedScenario("537e7eb7-82cd-4af0-90f2-3e514109f542", List.of("00a4040c")));
 
                 closeWebSocket();
 
