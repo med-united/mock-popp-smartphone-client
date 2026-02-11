@@ -1,6 +1,7 @@
 package de.servicehealth.cardservice;
 
 import java.io.*;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -110,4 +111,53 @@ public class CardServiceConfig {
     public String getLoggingLevel() {
         return properties.getProperty("cardservice.logging.level", "INFO");
     }
+
+    public String getWsdlPath() {
+    return properties.getProperty("cardservice.wsdl.path", "wsdl/CardService_v8_2_1.wsdl");
+    }
+
+    public String getWebsocketPathTemplate() {
+        return properties.getProperty("cardservice.websocket.path.template", "/websocket/{cn}");
+    }
+
+    public String getWebsocketRegisterType() {
+        return properties.getProperty("cardservice.websocket.register.type", "registerEGK");
+    }
+
+    public String getScenarioType() {
+        return properties.getProperty("cardservice.scenario.type", "StandardScenario");
+    }
+
+    public String getScenarioVersion() {
+        return properties.getProperty("cardservice.scenario.version", "1.0.0");
+    }
+
+    public int getScenarioSequenceCounter() {
+        return Integer.parseInt(properties.getProperty("cardservice.scenario.sequenceCounter", "1"));
+    }
+
+    public int getScenarioTimeSpan() {
+        return Integer.parseInt(properties.getProperty("cardservice.scenario.timeSpan", "1000"));
+    }
+
+    public List<String> getScenarioExpectedStatusWords() {
+        String csv = properties.getProperty("cardservice.scenario.expectedStatusWords", "9000,6f00");
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
+    public String getTestCardHandle() {
+        return properties.getProperty("cardservice.test.cardHandle", "0000-1111");
+    }
+
+    public List<String> getTestApdus() {
+        String csv = properties.getProperty("cardservice.test.apdus", "00a4040c");
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
 }

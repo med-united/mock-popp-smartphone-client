@@ -65,15 +65,13 @@ public class CardServiceClient {
         try {
             // Get the service
             // Use local WSDL to avoid 403 Forbidden on WSDL fetch
-            java.net.URL wsdlUrl = getClass().getClassLoader().getResource("wsdl/CardService_v8_2_1.wsdl");
-            
+            String wsdlPath = config.getWsdlPath();
+            java.net.URL wsdlUrl = getClass().getClassLoader().getResource(wsdlPath);
+
             if (wsdlUrl == null) {
-                File localWsdl = new File("src/main/resources/wsdl/CardService_v8_2_1.wsdl");
-                if (localWsdl.exists()) {
-                    wsdlUrl = localWsdl.toURI().toURL();
-                } else {
-                    throw new java.io.FileNotFoundException("WSDL file not found: wsdl/CardService_v8_2_1.wsdl");
-                }
+                File localWsdl = new File("src/main/resources/" + wsdlPath);
+                if (localWsdl.exists()) wsdlUrl = localWsdl.toURI().toURL();
+                else throw new java.io.FileNotFoundException("WSDL file not found: " + wsdlPath);
             }
 
             CardService service = new CardService(wsdlUrl, CardService.SERVICE);
@@ -252,16 +250,15 @@ public class CardServiceClient {
             for (String apdu : apduHexList) {
                 Map<String, Object> step = new HashMap<>();
                 step.put("commandApdu", apdu);
-                step.put("expectedStatusWords", List.of("9000", "6f00"));
+                step.put("expectedStatusWords", config.getScenarioExpectedStatusWords());
                 steps.add(step);
             }
 
             Map<String, Object> message = new HashMap<>();
-            message.put("type", "StandardScenario");
-            message.put("version", "1.0.0");
-            message.put("clientSessionId", sessionId);
-            message.put("sequenceCounter", 1);
-            message.put("timeSpan", 1000);
+            message.put("type", config.getScenarioType());
+            message.put("version", config.getScenarioVersion());
+            message.put("sequenceCounter", config.getScenarioSequenceCounter());
+            message.put("timeSpan", config.getScenarioTimeSpan());
             message.put("steps", steps);
 
             System.out.println("Signed scenario:");
@@ -302,7 +299,8 @@ public class CardServiceClient {
             String scheme = endpointUri.getScheme().equalsIgnoreCase("https") ? "wss" : "ws";
             String host = endpointUri.getHost();
             int port = endpointUri.getPort();
-            String path = "/websocket/" + this.clientCertCn;
+            String path = config.getWebsocketPathTemplate().replace("{cn}", this.clientCertCn);
+
             java.net.URI wsUri = new java.net.URI(scheme, null, host, port, path, null, null);
             
             System.out.println("Connecting to WebSocket: " + wsUri);
@@ -552,12 +550,12 @@ public class CardServiceClient {
                 // Add Context as SOAP Header for test
                 addContextHeader(dummyContext);
 
-                connectWebSocket("0000-1111");
+                connectWebSocket(config.getTestCardHandle());
 
-                StartCardSessionResponse response = startCardSession(dummyContext, "0000-1111");
+                StartCardSessionResponse response = startCardSession(dummyContext, config.getTestCardHandle());
 
                 //secureSendApdu(dummyContext, createSignedScenario(response.getSessionId(), List.of("00a4040c")));
-                secureSendApdu(dummyContext, createSignedScenario("0000-1111", List.of("00a4040c")));
+                secureSendApdu(dummyContext, createSignedScenario(config.getTestCardHandle(), config.getTestApdus()));
 
                 closeWebSocket();
 
