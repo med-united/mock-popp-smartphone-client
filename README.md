@@ -22,7 +22,7 @@ Ein Werkzeug zur Analyse von Netzwerk-Mitschnitten (PCAP-Dateien).
 - **Funktion**: Extrahiert Low-Level APDU-Kommandos aus SICCT-Paketen innerhalb einer PCAP-Datei. Dies hilft beim Debuggen von Kommunikationsabläufen und beim Extrahieren von Testdaten aus echten Aufzeichnungen.
 - **Verwendung**:
   ```bash
-  mvn exec:java -Dexec.mainClass="de.servicehealth.pcap.PcapReader" -Dexec.args="pfad/zur/datei.pcap" // ohne Argument wird eine default Datei verwendet
+  mvn exec:java -Dexec.mainClass="de.servicehealth.pcap.PcapReader" -Dexec.args="pfad/zur/datei.pcap" // ohne args wird eine default Datei verwendet
   ```
 
 ### 3. PcapSender (`de.servicehealth.cardservice.PcapSender`)
@@ -34,7 +34,7 @@ Kombiniert die Funktionalität von Reader und Client für Replay-Szenarien.
   4. Sendet die extrahierten APDUs als signedScenario (`SecureSendAPDU`) an den Konnektor.
 - **Verwendung**:
   ```bash
-  mvn exec:java -Dexec.mainClass="de.servicehealth.cardservice.PcapSender" -Dexec.args="pfad/zur/datei.pcap" // ohne Argument wird eine default Datei verwendet
+  mvn exec:java -Dexec.mainClass="de.servicehealth.cardservice.PcapSender" -Dexec.args="pfad/zur/datei.pcap" // ohne args wird eine default Datei verwendet
   ```
 
 ## Konfiguration
