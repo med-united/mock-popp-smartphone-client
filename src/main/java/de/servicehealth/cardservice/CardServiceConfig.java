@@ -149,7 +149,7 @@ public class CardServiceConfig {
     }
 
     public String getTestCardHandle() {
-        return properties.getProperty("cardservice.test.cardHandle", "0000-1111");
+        return properties.getProperty("cardservice.test.cardHandle", "537e7eb7-82cd-4af0-90f2-3e514109f542");
     }
 
     public List<String> getTestApdus() {
