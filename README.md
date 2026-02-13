@@ -1,4 +1,3 @@
-# mock-popp-smartphone-client
 # Mock Popp Smartphone Client
 
 Dieses Projekt dient als Test-Client und Simulator für das Projekt **popp-smartphone-konnektor**. Es ermöglicht das Testen der SOAP-Schnittstellen für die APDU-Verarbeitung.
