@@ -2,6 +2,7 @@ package de.servicehealth.pcap;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * PCAP Reader for extracting APDU/SICCT messages from network captures
@@ -206,13 +207,29 @@ public class PcapReader {
     }
 
     /**
+     * Get list of APDUs that have a known instruction name
+     */
+    public List<ApduMessage> getApdusWithKnownInstructions() {
+        return apduMessages.stream().filter(a -> !a.getInstructionName().isEmpty()).collect(Collectors.toList());
+    }
+
+    /**
+     * Get list of raw APDU bytes that have a known instruction name
+     */
+    public List<byte[]> getRawApdusWithKnownInstructions() {
+        return apduMessages.stream()
+                .filter(a -> !a.getInstructionName().isEmpty())
+                .map(ApduMessage::getData)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Print summary of extracted APDUs
      */
     public void printSummary() {
-        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
-        System.out.println("║         PCAP APDU Analysis Summary                        ║");
-        System.out.println("╚════════════════════════════════════════════════════════════╝");
-        System.out.println("\nTotal APDU Messages: " + apduMessages.size());
+        List<ApduMessage> apduMessages = getApdusWithKnownInstructions();
+
+        System.out.println("\nTotal APDU Messages with known instructions: " + apduMessages.size());
         
         if (apduMessages.isEmpty()) {
             System.out.println("Keine APDUs in der PCAP-Datei gefunden.");
@@ -232,12 +249,12 @@ public class PcapReader {
         if (args.length < 1) {
             System.out.println("Usage: mvn exec:java \"-Dexec.mainClass=de.servicehealth.pcap.PcapReader\" \"-Dexec.args=<pcap_file>\"");
             System.out.println("Example: mvn exec:java \"-Dexec.mainClass=de.servicehealth.pcap.PcapReader\" \"-Dexec.args=src/main/resources/pcap/capture.pcap\"");
-            System.exit(1);
+            System.out.println("Default file is used");
         }
 
         try {
             PcapReader reader = new PcapReader();
-            List<ApduMessage> apdus = reader.readPcapFile(args[0]);
+            List<ApduMessage> apdus = reader.readPcapFile((args.length > 0 ? args[0] : "src/main/resources/pcap/connect-gsmc-kt-card-handle-vsdm.pcap"));
             reader.printSummary();
         } catch (IOException e) {
             System.err.println("Error reading PCAP file: " + e.getMessage());

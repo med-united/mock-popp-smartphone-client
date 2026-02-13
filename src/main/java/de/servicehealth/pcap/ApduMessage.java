@@ -154,7 +154,7 @@ public class ApduMessage {
         String insStr = tags.getOrDefault("INS", "??");
         sb.append("├─ INS (Instruktion): ").append(insStr);
         if (data.length > 1) {
-            String insName = getInstructionName(data[1]);
+            String insName = getInstructionName(data[0], data[1]);
             if (!insName.isEmpty()) {
                 sb.append(" (").append(insName).append(")");
             }
@@ -181,58 +181,63 @@ public class ApduMessage {
     }
 
     /**
+     * Get the instruction name for this APDU if available
+     */
+    public String getInstructionName() {
+        if (data == null || data.length < 2) {
+            return "";
+        }
+        return getInstructionName(data[0], data[1]);
+    }
+
+    /**
      * Get common instruction names (ISO/IEC 7816-4 standard and proprietary)
      */
-    private String getInstructionName(byte ins) {
-        switch (ins & 0xFF) {
-            // ISO/IEC 7816-4 Standard Instructions
-            case 0x00: return "NOP";
-            case 0x04: return "DEACTIVATE FILE";
-            case 0x0E: return "ERASE RECORD";
-            case 0x0F: return "ERASE BINARY";
-            case 0x14: return "ERASE BINARY LONG";
-            case 0x20: return "VERIFY";
-            case 0x24: return "CHANGE REF";
+    private String getInstructionName(byte cla, byte ins) {
+        int claInt = cla & 0xFF;
+        int insInt = ins & 0xFF;
+
+        switch (insInt) {
+            case 0x04: return "DEACTIVATE";
+            case 0x06: return "DEACTIVATE RECORD";
+            case 0x08: return "ACTIVATE RECORD";
+            case 0x0C: return (claInt == 0x80) ? "DELETE RECORD" : "ERASE RECORD";
+            case 0x0E: return (claInt == 0x80) ? "SET LOGICAL EOF" : "ERASE BINARY";
+            case 0x20: return (claInt == 0x80) ? "GET PIN STATUS" : "VERIFY";
+            case 0x22: return "MANAGE SECURITY ENVIRONMENT";
+            case 0x24: return "CHANGE REFERENCE DATA";
+            case 0x26: return "DISABLE VERIFICATION REQUIREMENT";
+            case 0x28: return "ENABLE VERIFICATION REQUIREMENT";
+            case 0x2A: return "PERFORM SECURITY OPERATION";
             case 0x2C: return "RESET RETRY COUNTER";
-            case 0x44: return "ACTIVATE FILE";
-            case 0x70: return "MANAGE CHANNEL (OPEN)";
-            case 0x71: return "MANAGE CHANNEL (CLOSE)";
-            case 0x82: return "EXTERNAL AUTHENTICATE";
-            case 0x84: return "GET CHALLENGE";
-            case 0x88: return "AUTHENTICATE";
+            case 0x44: return "ACTIVATE";
+            case 0x46: return "GENERATE ASYMMETRIC KEY PAIR";
+            case 0x70: return "MANAGE CHANNEL";
+            case 0x82: return (claInt == 0x80) ? "GET SECURITY STATUS KEY" : "EXTERNAL / MUTUAL AUTHENTICATE";
+            case 0x84: return (claInt == 0x80) ? "GET RANDOM" : "GET CHALLENGE";
+            case 0x86: return "GENERAL AUTHENTICATE";
+            case 0x88: return "INTERNAL AUTHENTICATE";
             case 0xA0: return "SEARCH BINARY";
-            case 0xA1: return "SEARCH RECORD";
+            case 0xA2: return "SEARCH RECORD";
             case 0xA4: return "SELECT";
             case 0xB0: return "READ BINARY";
-            case 0xB1: return "READ BINARY LONG";
             case 0xB2: return "READ RECORD";
-            case 0xB3: return "READ RECORD LONG";
             case 0xC0: return "GET RESPONSE";
             case 0xC2: return "ENVELOPE";
-            case 0xC3: return "GET CHALLENGE";
-            case 0xCA: return "GET DATA";
-            case 0xCB: return "GET DATA (TAGGED)";
+            case 0xCA: return (claInt == 0x80) ? "LIST PUBLIC KEY" : "GET DATA";
             case 0xD0: return "WRITE BINARY";
-            case 0xD1: return "WRITE BINARY LONG";
             case 0xD2: return "WRITE RECORD";
             case 0xD6: return "UPDATE BINARY";
             case 0xDA: return "PUT DATA";
-            case 0xDB: return "PUT DATA (TAGGED)";
             case 0xDC: return "UPDATE RECORD";
-            case 0xE0: return "CREATE FILE";
+            case 0xE0: return "CREATE";
             case 0xE2: return "APPEND RECORD";
-            case 0xE4: return "DELETE FILE";
-            case 0xE6: return "UPDATE RECORD";
-            case 0xE8: return "CREATE RECORD";
-            case 0xEA: return "DELETE RECORD";
-            case 0xEC: return "TERMINATE CARD USAGE";
-            case 0xEE: return "TERMINATE DF";
-            
-            // Common proprietary/card-specific
-            case 0xA8: return "CONSTRUCT DO";
-            case 0xAC: return "GET CERTIFICATE";
-            case 0xAE: return "SIGN";
-            case 0xAF: return "GENERATE KEYPAIR";
+            case 0xE4: return "DELETE";
+            case 0xE6: return "TERMINATE DF";
+            case 0xE8: return "TERMINATE";
+            case 0xEA: return "LOAD APPLICATION";
+            case 0xFA: return (claInt == 0x80) ? "FINGERPRINT" : "";
+            case 0xFE: return "TERMINATE CARD USAGE";
             
             default: return "";
         }

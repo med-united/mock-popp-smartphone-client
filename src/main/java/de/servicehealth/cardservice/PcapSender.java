@@ -14,21 +14,22 @@ import java.util.List;
  * Reads APDUs from a PCAP file and sends them as a single signed scenario.
  */
 public class PcapSender {
-
     public static void main(String[] args) {
-        //if (args.length < 1) {
-        //    System.out.println("Usage: mvn exec:java \"-Dexec.mainClass=de.servicehealth.cardservice.PcapSender\" \"-Dexec.args=<pcap_file>\"");
-        //    System.exit(1);
-        // }
+        if (args.length < 1) {
+            System.out.println("Usage: mvn exec:java \"-Dexec.mainClass=de.servicehealth.cardservice.PcapSender\" \"-Dexec.args=<pcap_file>\"");
+            System.out.println("Default file is used");
+        }
 
         String pcapFilePath = (args.length > 0 ? args[0] : "src/main/resources/pcap/connect-gsmc-kt-card-handle-vsdm.pcap");
         System.out.println("Reading PCAP file: " + pcapFilePath);
 
         try {
+            CardServiceConfig config = new CardServiceConfig();
+            
             // 1. Read APDUs from PCAP
             PcapReader reader = new PcapReader();
             reader.readPcapFile(pcapFilePath);
-            List<byte[]> rawApdus = reader.getRawApdus();
+            List<byte[]> rawApdus = reader.getRawApdusWithKnownInstructions();
 
             if (rawApdus.isEmpty()) {
                 System.out.println("No APDUs found in PCAP file.");
@@ -55,7 +56,7 @@ public class PcapSender {
             // 3. Initialize CardService Client
             CardServiceClient client = new CardServiceClient();
             
-            client.connectWebSocket("0000-1111");
+            client.connectWebSocket(config.getTestCardHandle());
 
             // Create Context
             ContextType context = new ContextType();
@@ -67,7 +68,7 @@ public class PcapSender {
             // 4. Start Card Session
             System.out.println("Starting Card Session...");
             // Note: "0000-1111" is a dummy card handle, adjust if necessary
-            StartCardSessionResponse sessionResponse = client.startCardSession(context, "0000-1111");
+            StartCardSessionResponse sessionResponse = client.startCardSession(context, config.getTestCardHandle());
 
             if (sessionResponse == null || sessionResponse.getSessionId() == null) {
                 System.err.println("Failed to start card session.");
@@ -80,7 +81,7 @@ public class PcapSender {
             // 5. Create Signed Scenario with ALL APDUs
             System.out.println("Creating signed scenario with " + apduHexList.size() + " steps...");
             //String signedScenario = client.createSignedScenario(sessionId, apduHexList);
-            String signedScenario = client.createSignedScenario("537e7eb7-82cd-4af0-90f2-3e514109f542", apduHexList);
+            String signedScenario = client.createSignedScenario(config.getTestCardHandle(), apduHexList);
 
             if ("INVALID_JWT".equals(signedScenario) || "ERROR_CREATING_JWT".equals(signedScenario)) {
                 System.err.println("Failed to create signed scenario.");
